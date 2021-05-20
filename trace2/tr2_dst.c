@@ -62,11 +62,13 @@ static int tr2_dst_try_auto_path(struct tr2_dst *dst, const char *tgt_prefix)
 	}
 
 	if (fd == -1) {
+		int saved_errno = errno;
+
 		if (tr2_dst_want_warning())
 			warning("trace2: could not open '%.*s' for '%s' tracing: %s",
 				(int) base_path_len, path.buf,
 				tr2_sysenv_display_name(dst->sysenv_var),
-				strerror(errno));
+				strerror(saved_errno));
 
 		tr2_dst_trace_disable(dst);
 		strbuf_release(&path);
@@ -86,11 +88,13 @@ static int tr2_dst_try_path(struct tr2_dst *dst, const char *tgt_value)
 {
 	int fd = open(tgt_value, O_WRONLY | O_APPEND | O_CREAT, 0666);
 	if (fd == -1) {
+		int saved_errno = errno;
+
 		if (tr2_dst_want_warning())
 			warning("trace2: could not open '%s' for '%s' tracing: %s",
 				tgt_value,
 				tr2_sysenv_display_name(dst->sysenv_var),
-				strerror(errno));
+				strerror(saved_errno));
 
 		tr2_dst_trace_disable(dst);
 		return 0;
@@ -140,6 +144,7 @@ static int tr2_dst_try_unix_domain_socket(struct tr2_dst *dst,
 	unsigned int uds_try = 0;
 	int fd;
 	const char *path = NULL;
+	int saved_errno;
 
 	/*
 	 * Allow "af_unix:[<type>:]<absolute_path>"
@@ -193,10 +198,11 @@ static int tr2_dst_try_unix_domain_socket(struct tr2_dst *dst,
 	}
 
 error:
+	saved_errno = errno;
 	if (tr2_dst_want_warning())
 		warning("trace2: could not connect to socket '%s' for '%s' tracing: %s",
 			path, tr2_sysenv_display_name(dst->sysenv_var),
-			strerror(errno));
+			strerror(saved_errno));
 
 	tr2_dst_trace_disable(dst);
 	return 0;
@@ -276,6 +282,7 @@ int tr2_dst_trace_want(struct tr2_dst *dst)
 void tr2_dst_write_line(struct tr2_dst *dst, struct strbuf *buf_line)
 {
 	int fd = tr2_dst_get_trace_fd(dst);
+	int saved_errno;
 
 	strbuf_complete_line(buf_line); /* ensure final NL on buffer */
 
@@ -297,9 +304,10 @@ void tr2_dst_write_line(struct tr2_dst *dst, struct strbuf *buf_line)
 	if (write(fd, buf_line->buf, buf_line->len) >= 0)
 		return;
 
+	saved_errno = errno;
 	if (tr2_dst_want_warning())
 		warning("unable to write trace to '%s': %s",
 			tr2_sysenv_display_name(dst->sysenv_var),
-			strerror(errno));
+			strerror(saved_errno));
 	tr2_dst_trace_disable(dst);
 }
